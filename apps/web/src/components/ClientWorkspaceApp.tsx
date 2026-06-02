@@ -42,6 +42,7 @@ import type {
   WorkItemAssistantResult,
   WorkItemConversationMessage,
 } from '../../../../src/schemas/operations'
+import type { AssistantDefinition } from '../../../../src/schemas/assistants'
 
 type ClientWorkspaceView = 'home' | 'newRequest' | 'reviews' | 'files' | 'chat' | 'settings'
 
@@ -50,6 +51,7 @@ type ClientWorkspaceAppProps = {
   view: ClientWorkspaceView
   workItems?: WorkItem[]
   funnel?: Funnel
+  assistants?: AssistantDefinition[]
 }
 
 type ClientRequestStatus = 'new' | 'inProgress' | 'waiting' | 'needsReview' | 'ready' | 'done'
@@ -113,6 +115,7 @@ export default function ClientWorkspaceApp({
   view,
   workItems = [],
   funnel,
+  assistants = [],
 }: ClientWorkspaceAppProps) {
   const clientName = formatClientName(clientSlug || 'generic-client')
   const requests = workItems.map(workItemToClientRequest)
@@ -165,6 +168,7 @@ export default function ClientWorkspaceApp({
             clientSlug={clientSlug}
             requests={requests}
             funnel={funnel}
+            assistants={assistants}
             onOpenRequest={setSelectedRequestId}
           />
         ) : null}
@@ -268,12 +272,14 @@ function ClientKanbanView({
   clientSlug,
   requests,
   funnel,
+  assistants,
   onOpenRequest,
 }: {
   clientName: string
   clientSlug: string
   requests: ClientRequest[]
   funnel?: Funnel
+  assistants: AssistantDefinition[]
   onOpenRequest?: (requestId: string) => void
 }) {
   const stages = sortFunnelStages(funnel?.stages ?? statusColumns.map(boardColumnToFunnelStage))
@@ -431,6 +437,7 @@ function ClientKanbanView({
           <AddStageCard
             clientSlug={clientSlug}
             funnelId={funnelId}
+            assistants={assistants}
           />
         ) : null}
       </section>
@@ -444,6 +451,7 @@ function ClientKanbanView({
             requests.filter((request) => request.workItemStatus === selectedSettingsStage.status).length
           }
           canDeleteStage={isEditingFunnel}
+          assistants={assistants}
           onClose={() => setSelectedSettingsStage(null)}
         />
       ) : null}
@@ -531,7 +539,15 @@ function StageColumnSettingsSummary({ stage }: { stage: FunnelStage }) {
   )
 }
 
-function AddStageCard({ clientSlug, funnelId }: { clientSlug: string; funnelId?: string }) {
+function AddStageCard({
+  clientSlug,
+  funnelId,
+  assistants,
+}: {
+  clientSlug: string
+  funnelId?: string
+  assistants: AssistantDefinition[]
+}) {
   const createStage = useServerFn(createClientFunnelStage)
   const [isAddingStage, setIsAddingStage] = useState(false)
   const [stageLabel, setStageLabel] = useState('')
@@ -664,12 +680,10 @@ function AddStageCard({ clientSlug, funnelId }: { clientSlug: string; funnelId?:
             />
           </label>
           <label style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-            <span style={{ color: '#17202a', fontSize: '0.8rem', fontWeight: 800 }}>Assistant key</span>
-            <input
-              type="text"
+            <span style={{ color: '#17202a', fontSize: '0.8rem', fontWeight: 800 }}>Assistant</span>
+            <select
               value={assistantKey}
               onChange={(event) => setAssistantKey(event.currentTarget.value)}
-              placeholder="Optional"
               style={{
                 width: '100%',
                 border: '1px solid rgba(20, 29, 38, 0.14)',
@@ -678,8 +692,16 @@ function AddStageCard({ clientSlug, funnelId }: { clientSlug: string; funnelId?:
                 color: '#17202a',
                 font: 'inherit',
                 fontSize: '0.86rem',
+                background: '#ffffff',
               }}
-            />
+            >
+              <option value="">No assistant</option>
+              {assistants.map((a) => (
+                <option key={a.key} value={a.key}>
+                  {a.label}
+                </option>
+              ))}
+            </select>
           </label>
           <label
             style={{
@@ -723,6 +745,7 @@ function StageSettingsPanel({
   stageCount,
   stageWorkItemCount,
   canDeleteStage,
+  assistants,
   onClose,
 }: {
   clientSlug: string
@@ -731,6 +754,7 @@ function StageSettingsPanel({
   stageCount: number
   stageWorkItemCount: number
   canDeleteStage: boolean
+  assistants: AssistantDefinition[]
   onClose: () => void
 }) {
   const updateStageSettings = useServerFn(updateClientFunnelStageSettings)
@@ -965,12 +989,10 @@ function StageSettingsPanel({
             </select>
           </label>
           <label style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-            <span style={{ color: '#17202a', fontSize: '0.8rem', fontWeight: 800 }}>Assistant key</span>
-            <input
-              type="text"
+            <span style={{ color: '#17202a', fontSize: '0.8rem', fontWeight: 800 }}>Assistant</span>
+            <select
               value={assistantKey}
               onChange={(event) => setAssistantKey(event.currentTarget.value)}
-              placeholder="No assistant assigned"
               style={{
                 width: '100%',
                 border: '1px solid rgba(20, 29, 38, 0.14)',
@@ -979,8 +1001,19 @@ function StageSettingsPanel({
                 color: '#17202a',
                 font: 'inherit',
                 fontSize: '0.86rem',
+                background: '#ffffff',
               }}
-            />
+            >
+              <option value="">No assistant</option>
+              {assistants.map((a) => (
+                <option key={a.key} value={a.key}>
+                  {a.label}
+                </option>
+              ))}
+              {assistantKey && !assistants.some((a) => a.key === assistantKey) ? (
+                <option value={assistantKey}>{assistantKey}</option>
+              ) : null}
+            </select>
           </label>
           <label
             style={{
@@ -1624,7 +1657,9 @@ function SuggestedActionCard({
     ? 'Applying...'
     : isApplyDisabled
       ? 'Applying another action...'
-      : 'Apply action'
+      : targetStage
+        ? `Move to ${targetStage.label}`
+        : 'Apply action'
 
   return (
     <div

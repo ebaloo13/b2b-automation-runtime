@@ -1,6 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import ClientWorkspaceApp from '../components/ClientWorkspaceApp'
 import { getClientWorkItemFunnel, getClientWorkItems } from '../lib/client-work-items.functions'
+import { listAssistants } from '../../../../src/agents/assistant-registry'
 
 export const Route = createFileRoute('/workspace/$clientSlug/')({
   loader: async ({ params }) => {
@@ -16,6 +17,7 @@ export const Route = createFileRoute('/workspace/$clientSlug/')({
     return {
       workItems,
       funnel,
+      assistants: listAssistants(),
     }
   },
   component: ClientWorkspaceHomePage,
@@ -23,7 +25,7 @@ export const Route = createFileRoute('/workspace/$clientSlug/')({
 
 function ClientWorkspaceHomePage() {
   const { clientSlug } = Route.useParams()
-  const { workItems, funnel } = Route.useLoaderData()
+  const { workItems, funnel, assistants } = Route.useLoaderData()
 
-  return <ClientWorkspaceApp clientSlug={clientSlug} view="home" workItems={workItems} funnel={funnel} />
+  return <ClientWorkspaceApp clientSlug={clientSlug} view="home" workItems={workItems} funnel={funnel} assistants={assistants} />
 }
